@@ -2,54 +2,52 @@ package io.github.vvb2060.packageinstaller.model
 
 import android.content.Intent
 import android.content.pm.PackageInfo
+import androidx.compose.runtime.Immutable
 
-sealed class InstallStage(val stageCode: Int) {
-    companion object {
-        const val STAGE_ABORTED = 0
-        const val STAGE_PARSE = 1
-        const val STAGE_USER_ACTION = 2
-        const val STAGE_ARCHIVE = 3
-        const val STAGE_INSTALLING = 4
-        const val STAGE_SUCCESS = 5
-        const val STAGE_FAILED = 6
-    }
-}
+sealed class InstallStage()
 
-class InstallParse : InstallStage(STAGE_PARSE)
+@Immutable
+class InstallParse : InstallStage()
 
+@Immutable
 class InstallUserAction(
     val apkLite: ApkLite,
     val oldApk: PackageInfo?,
     val fullInstall: Boolean = true,
     val skipCreate: Boolean = true,
-) : InstallStage(STAGE_USER_ACTION)
+) : InstallStage()
 
+@Immutable
 class PackageUserAction(
     val apkLite: ApkLite,
     val oldApk: PackageInfo,
-) : InstallStage(STAGE_ARCHIVE)
+) : InstallStage()
 
-class InstallInstalling(
+@Immutable
+class Installing(
     val apkLite: ApkLite,
-) : InstallStage(STAGE_INSTALLING)
+) : InstallStage()
 
+@Immutable
 class InstallSuccess(
     val apkLite: ApkLite,
     val startIntent: Intent?,
     val path: String? = null,
-) : InstallStage(STAGE_SUCCESS)
+) : InstallStage()
 
+@Immutable
 class InstallFailed(
     val apkLite: ApkLite,
     val legacyCode: Int,
     val statusCode: Int,
     val message: String?,
-) : InstallStage(STAGE_FAILED)
+) : InstallStage()
 
+@Immutable
 class InstallAborted(
     val abortReason: Int,
     val intent: Intent? = null,
-) : InstallStage(STAGE_ABORTED) {
+) : InstallStage() {
 
     companion object {
         const val ABORT_CLOSE = 0

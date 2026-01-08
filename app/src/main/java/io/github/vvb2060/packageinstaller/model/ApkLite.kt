@@ -1,6 +1,5 @@
 package io.github.vvb2060.packageinstaller.model
 
-import android.content.res.Resources
 import android.graphics.drawable.Drawable
 
 class ApkLite(
@@ -18,15 +17,6 @@ class ApkLite(
     var icon: Drawable?,
 ) {
     var zip: Boolean = false
-
-    fun getIcon(): Drawable {
-        return icon ?: Resources.getSystem()
-            .getDrawable(android.R.drawable.sym_def_app_icon, null)
-    }
-
-    fun getLabel(): String {
-        return label ?: packageName
-    }
 
     fun isSplit(): Boolean {
         return !zip && splitName != null && splitName.isNotEmpty()

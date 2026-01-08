@@ -127,6 +127,7 @@ dependencies {
     // DI
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
+    implementation(libs.coil.compose)
 }
 
 apply(from = rootProject.file("signing.gradle"))

@@ -26,7 +26,6 @@ import android.system.Os
 import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.net.toUri
 import io.github.vvb2060.packageinstaller.R
 import io.github.vvb2060.packageinstaller.model.Hook.wrap
 import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_CLOSE
@@ -88,7 +87,7 @@ class InstallRepository(private val context: Context) {
     fun parseUri() {
         var uri = intent.data
         if (uri == null) {
-            uri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
             intent.setData(uri)
         }
         if (uri != null && "package" == uri.scheme) {
@@ -117,7 +116,7 @@ class InstallRepository(private val context: Context) {
 
     fun install(setInstaller: Boolean, commit: Boolean, full: Boolean, removeSplit: Boolean) {
         val uri = intent.data
-        installResult.value = (InstallInstalling(apkLite!!))
+        installResult.value = (Installing(apkLite!!))
         if (ContentResolver.SCHEME_CONTENT != uri?.scheme &&
             ContentResolver.SCHEME_FILE != uri?.scheme
         ) {
@@ -186,7 +185,10 @@ class InstallRepository(private val context: Context) {
             return InstallAborted(ABORT_PARSE)
         }
         val old = try {
-            packageManager.getPackageInfo(apk.packageName, PackageManager_rename.MATCH_KNOWN_PACKAGES)
+            packageManager.getPackageInfo(
+                apk.packageName,
+                PackageManager_rename.MATCH_KNOWN_PACKAGES
+            )
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
@@ -194,17 +196,8 @@ class InstallRepository(private val context: Context) {
         if (apk.isSplit()) {
             for (item in packageInstaller.allSessions) {
                 if (item.isActive && item.appPackageName == apk.packageName) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // noinspection NewApi
-                        if (item.installerUid != Shizuku.getUid()) {
-                            continue
-                        }
-                    } else {
-                        if (item.installReason != PackageManager.INSTALL_REASON_USER) continue
-                        item as PackageInstaller_rename.SessionInfo
-                        if (item.installFlags and PackageManager_rename.INSTALL_FROM_ADB == 0) {
-                            continue
-                        }
+                    if (item.installerUid != Shizuku.getUid()) {
+                        continue
                     }
                     val info = packageInstaller.getSessionInfo(item.sessionId)!!
                     stagedSessionId = info.sessionId
@@ -230,7 +223,8 @@ class InstallRepository(private val context: Context) {
                 apk.icon = old.applicationInfo!!.loadIcon(packageManager)
             }
             // use this field to store the installer package name
-            old.sharedUserId = packageManager.getInstallerPackageName(apk.packageName)
+            old.sharedUserId =
+                packageManager.getInstallSourceInfo(apk.packageName).installingPackageName
         }
         if (apk.label == null) {
             context.contentResolver.query(uri, null, null, null, null).use { cursor ->
@@ -273,26 +267,17 @@ class InstallRepository(private val context: Context) {
     private fun queryZipUri(info: PackageInfo): Uri? {
         val name = "${info.packageName}-${info.longVersionCode}.zip"
         val name2 = "${info.packageName}-${info.longVersionCode} (%).zip"
-        val dir = Environment.DIRECTORY_DOCUMENTS + File.separator +
-            context.getString(R.string.app_name)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val cr = context.contentResolver
-            val tableUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=? OR " +
+        val cr = context.contentResolver
+        val tableUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=? OR " +
                 "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
-            val selectionArgs = arrayOf(name, name2)
-            val projection = arrayOf(MediaStore.MediaColumns._ID)
-            cr.query(tableUri, projection, selection, selectionArgs, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val index = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                    val id = cursor.getLong(index)
-                    return MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL, id)
-                }
-            }
-        } else {
-            val file = File(context.getExternalFilesDir(dir), name)
-            if (file.exists()) {
-                return file.toUri()
+        val selectionArgs = arrayOf(name, name2)
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        cr.query(tableUri, projection, selection, selectionArgs, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                val id = cursor.getLong(index)
+                return MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL, id)
             }
         }
         return null
@@ -301,6 +286,7 @@ class InstallRepository(private val context: Context) {
     private fun installPackageUri() {
         stagingProgress.value = (101)
         try {
+            @Suppress("KotlinConstantConditions")
             val pm = packageManager as PackageManager_rename
             pm.installExistingPackage(apkLite!!.packageName, PackageManager.INSTALL_REASON_USER)
             setStageBasedOnResult(
@@ -327,26 +313,35 @@ class InstallRepository(private val context: Context) {
         var installer = context.packageName
         if (setInstaller) {
             try {
-                packageManager.getPackageInfo("com.android.vending", PackageManager.MATCH_SYSTEM_ONLY)
+                packageManager.getPackageInfo(
+                    "com.android.vending",
+                    PackageManager.MATCH_SYSTEM_ONLY
+                )
                 installer = "com.android.vending"
             } catch (_: PackageManager.NameNotFoundException) {
                 installer = "com.android.shell"
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                params.setPackageSource(PackageInstaller.PACKAGE_SOURCE_STORE)
-            }
+            params.setPackageSource(PackageInstaller.PACKAGE_SOURCE_STORE)
         } else {
-            val referrerUri: Uri? = intent.getParcelableExtra(Intent.EXTRA_REFERRER)
+            val referrerUri: Uri? =
+                intent.getParcelableExtra(Intent.EXTRA_REFERRER, Uri::class.java)
             params.setReferrerUri(referrerUri)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val source = if (referrerUri != null) PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
-                else PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE
-                params.setPackageSource(source)
-            }
-            params.setOriginatingUri(intent.getParcelableExtra(Intent.EXTRA_ORIGINATING_URI))
-            params.setOriginatingUid(intent.getIntExtra(Intent_rename.EXTRA_ORIGINATING_UID, callingUid))
+            val source = if (referrerUri != null) PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE
+            else PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE
+            params.setPackageSource(source)
+            params.setOriginatingUri(
+                intent.getParcelableExtra(
+                    Intent.EXTRA_ORIGINATING_URI,
+                    Uri::class.java
+                )
+            )
+            params.setOriginatingUid(
+                intent.getIntExtra(
+                    Intent_rename.EXTRA_ORIGINATING_UID,
+                    callingUid
+                )
+            )
         }
-        // noinspection NewApi
         params.setInstallerPackageName(installer)
         params.setInstallReason(PackageManager.INSTALL_REASON_USER)
         params.setAppPackageName(apkLite!!.packageName)
@@ -355,15 +350,14 @@ class InstallRepository(private val context: Context) {
             params.setAppLabel(apkLite!!.label)
         }
 
+        @Suppress("KotlinConstantConditions")
         val p = params as PackageInstaller_rename.SessionParams
         p.installFlags = p.installFlags or PackageManager_rename.INSTALL_ALLOW_TEST
         p.installFlags = p.installFlags or PackageManager_rename.INSTALL_REPLACE_EXISTING
         p.installFlags = p.installFlags or PackageManager_rename.INSTALL_REQUEST_DOWNGRADE
         p.installFlags = p.installFlags or PackageManager_rename.INSTALL_FULL_APP
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            p.installFlags = p.installFlags or PackageManager_rename.INSTALL_BYPASS_LOW_TARGET_SDK_BLOCK
-            p.installFlags = p.installFlags or PackageManager_rename.INSTALL_REQUEST_UPDATE_OWNERSHIP
-        }
+        p.installFlags = p.installFlags or PackageManager_rename.INSTALL_BYPASS_LOW_TARGET_SDK_BLOCK
+        p.installFlags = p.installFlags or PackageManager_rename.INSTALL_REQUEST_UPDATE_OWNERSHIP
         return params
     }
 
@@ -372,7 +366,7 @@ class InstallRepository(private val context: Context) {
         try {
             val session = packageInstaller.openSession(stagedSessionId)
             session.wrap()
-            // noinspection RequestInstallPackagesPolicy
+            @Suppress("KotlinConstantConditions")
             session.commit(receiver.intentSender as IntentSender)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to commit staged session", e)
@@ -409,26 +403,20 @@ class InstallRepository(private val context: Context) {
     }
 
     fun archivePackage(info: PackageInfo, uninstall: Boolean) {
-        installResult.value = (InstallInstalling(apkLite!!))
+        installResult.value = (Installing(apkLite!!))
 
         val name = "${info.packageName}-${info.longVersionCode}.zip"
         val dir = Environment.DIRECTORY_DOCUMENTS + File.separator +
-            context.getString(R.string.app_name)
+                context.getString(R.string.app_name)
         var path = ""
-        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val cr = context.contentResolver
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, dir)
-                put(MediaStore.MediaColumns.IS_PENDING, true)
-                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-            }
-            val tableUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            cr.insert(tableUri, values)
-        } else {
-            val file = File(context.getExternalFilesDir(dir), name)
-            path = file.absolutePath
-            file.toUri()
+        val cr = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.RELATIVE_PATH, dir)
+            put(MediaStore.MediaColumns.IS_PENDING, true)
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
         }
+        val tableUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        val uri = cr.insert(tableUri, values)
         if (uri == null) {
             installResult.value = (InstallAborted(ABORT_WRITE))
             return
@@ -489,6 +477,7 @@ class InstallRepository(private val context: Context) {
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 try {
+                    @Suppress("KotlinConstantConditions")
                     // noinspection MissingPermission
                     packageInstaller.requestArchive(
                         info.packageName,
@@ -499,6 +488,7 @@ class InstallRepository(private val context: Context) {
                     Log.w(TAG, "Failed to archive for package ${info.packageName}", e)
                 }
             }
+            @Suppress("KotlinConstantConditions")
             // noinspection MissingPermission NewApi
             packageInstaller.uninstall(
                 VersionedPackage(info.packageName, info.longVersionCode),

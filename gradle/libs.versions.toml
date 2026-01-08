@@ -4,19 +4,21 @@ kotlin = "2.3.0"
 
 app-version = "2.0"
 android-compileSdk = "36"
-android-minSdk = "29"
+android-minSdk = "34"
 android-targetSdk = "36"
 
 androidx-fragment = "1.8.9"
 androidx-lifecycle = "2.10.0"
 androidx-activity-compose = "1.12.2"
 androidx-compose-bom = "2025.12.01"
+material3 = "1.5.0-alpha11"
 shizuku = "13.1.5"
 hiddenapibypass = "6.1"
 commons-compress = "1.28.0"
 xz = "1.11"
 annotation = "1.9.1"
 koin = "4.1.1"
+coil = "2.7.0"
 
 [libraries]
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
@@ -28,12 +30,13 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidx-compose-bom" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
-androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenapibypass" }
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commons-compress" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
