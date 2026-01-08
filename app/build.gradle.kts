@@ -110,7 +110,6 @@ android {
 dependencies {
     compileOnly(projects.stub)
     implementation(libs.androidx.fragment)
-    implementation(libs.androidx.lifecycle.livedata)
     implementation(libs.shizuku.provider)
     implementation(libs.shizuku.api)
     implementation(libs.hiddenapibypass)
@@ -123,6 +122,11 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // DI
+    implementation(libs.koin.android)
+    implementation(libs.koin.compose)
 }
 
 apply(from = rootProject.file("signing.gradle"))

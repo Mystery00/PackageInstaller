@@ -39,7 +39,7 @@ object PackageUtil {
             null,
             null,
             null,
-            pkgInfo.getLongVersionCode(),
+            pkgInfo.longVersionCode,
             pkgInfo.versionName ?: "null",
             info.minSdkVersion.toString(),
             info.targetSdkVersion.toString(),
@@ -57,7 +57,7 @@ object PackageUtil {
                 if (xml != null) {
                     try {
                         return getAppLiteFromApkFd(
-                            afd.getFileDescriptor(),
+                            afd.fileDescriptor,
                             afd.toString(), afd.getLength()
                         )
                     } catch (_: IOException) {
@@ -71,8 +71,8 @@ object PackageUtil {
                 var base = zipFile.getEntry("base.apk")
                     ?: zipFile.getEntry("splits/base-master_2.apk")
                 if (base == null) {
-                    for (entry in zipFile.getEntries()) {
-                        if (entry.getName().endsWith(".apk")) {
+                    for (entry in zipFile.entries) {
+                        if (entry.name.endsWith(".apk")) {
                             if (base == null) {
                                 base = entry
                             } else {
@@ -86,15 +86,15 @@ object PackageUtil {
                 }
 
                 ZipArchiveInputStream(zipFile.getInputStream(base)).use { input ->
-                    var innerEntry = input.getNextEntry()
+                    var innerEntry = input.nextEntry
                     while (innerEntry != null) {
-                        if (innerEntry.getName() == "AndroidManifest.xml") {
+                        if (innerEntry.name == "AndroidManifest.xml") {
                             val bytes = IOUtils.toByteArray(input)
                             return getAppLiteFromXmlBytes(bytes)?.apply {
                                 zip = true
                             }
                         }
-                        innerEntry = input.getNextEntry()
+                        innerEntry = input.nextEntry
                     }
                     return null
                 }
@@ -117,7 +117,7 @@ object PackageUtil {
         }
         val clazz = Class.forName("android.content.res.XmlBlock")
         clazz.getConstructor(ByteArray::class.java).run {
-            setAccessible(true)
+            isAccessible = true
             newInstance(xmlBytes) as AutoCloseable
         }.use {
             clazz.getDeclaredMethod("newParser").run {
@@ -161,9 +161,9 @@ object PackageUtil {
         var minSdk: String? = null
         var targetSdk: String? = null
 
-        var eventType = parser.getEventType()
+        var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
-            if (eventType == XmlPullParser.START_TAG && parser.getName() == "application") {
+            if (eventType == XmlPullParser.START_TAG && parser.name == "application") {
                 val iconId = parser.getAttributeResourceValue(ns, "icon", 0)
                 icon = try {
                     res.getDrawable(iconId, null)
@@ -181,7 +181,7 @@ object PackageUtil {
                 if (packageName != null && minSdk != null) {
                     break
                 }
-            } else if (eventType == XmlPullParser.START_TAG && parser.getName() == "manifest") {
+            } else if (eventType == XmlPullParser.START_TAG && parser.name == "manifest") {
                 packageName = parser.getAttributeValue(null, "package")
                 splitName = parser.getAttributeValue(null, "split")
                 versionCode = parser.getAttributeIntValue(ns, "versionCode", 0)
@@ -190,7 +190,7 @@ object PackageUtil {
                 requiredSplitTypes =
                     parser.getAttributeValue(ns, "requiredSplitTypes")
                 splitTypes = parser.getAttributeValue(ns, "splitTypes")
-            } else if (eventType == XmlPullParser.START_TAG && parser.getName() == "uses-sdk") {
+            } else if (eventType == XmlPullParser.START_TAG && parser.name == "uses-sdk") {
                 minSdk = parser.getAttributeValue(ns, "minSdkVersion")
                 targetSdk = parser.getAttributeValue(ns, "targetSdkVersion")
             }
@@ -243,13 +243,13 @@ object PackageUtil {
     private fun languageFilter(): List<String> {
         val res = Resources.getSystem()
         val languageSet = LinkedHashSet<String>()
-        val localeList = res.getConfiguration().getLocales()
+        val localeList = res.configuration.getLocales()
         for (i in 0..<localeList.size()) {
             val locale = localeList.get(i)
             languageSet.add(locale.toLanguageTag().substringBefore('-'))
         }
         languageSet.add("base")
-        val allLocal = res.getAssets().getLocales()
+        val allLocal = res.assets.locales
         for (tag in allLocal) {
             val locale = Locale.forLanguageTag(tag)
             languageSet.add(locale.toLanguageTag().substringBefore('-'))
@@ -267,14 +267,14 @@ object PackageUtil {
     }
 
     private fun ZipArchiveEntry.getLabel(): String {
-        val name = this.getName().removeSuffix(".apk").removePrefix("split_")
+        val name = this.name.removeSuffix(".apk").removePrefix("split_")
         return if (name.startsWith("config.")) {
             name.removePrefix("config.")
         } else name.substringAfterLast(".config.")
     }
 
     private fun ZipArchiveEntry.getApksLabel(): String {
-        val name = this.getName().substringAfterLast('/').removeSuffix(".apk")
+        val name = this.name.substringAfterLast('/').removeSuffix(".apk")
         return if (name.startsWith("base-")) {
             name.removePrefix("base-")
         } else name.substringAfterLast("-")
@@ -295,8 +295,8 @@ object PackageUtil {
     private fun filterZipEntries(zipFile: ZipFile): List<ZipArchiveEntry> {
         val isApks = zipFile.getEntry("toc.pb") != null
         val apkMap = mutableMapOf<String, MutableList<ZipArchiveEntry>>()
-        zipFile.getEntries().asSequence()
-            .filter { it.getName().endsWith(".apk") }
+        zipFile.entries.asSequence()
+            .filter { it.name.endsWith(".apk") }
             .forEach {
                 val label = if (isApks) {
                     it.getApksLabel().convert()
@@ -333,13 +333,13 @@ object PackageUtil {
             .setSeekableByteChannel(afd.createInputStream().getChannel())
             .get().use { zipFile ->
                 val apks = filterZipEntries(zipFile)
-                val total = apks.sumOf { it.getSize() }
+                val total = apks.sumOf { it.size }
                 var totalRead = 0L
                 val buffer = ByteArray(16 * 1024)
                 callback.accept(0)
                 apks.forEach { entry ->
-                    val fileName = entry.getName().substringAfterLast('/')
-                    session.openWrite(fileName, 0, entry.getSize()).use { out ->
+                    val fileName = entry.name.substringAfterLast('/')
+                    session.openWrite(fileName, 0, entry.size).use { out ->
                         zipFile.getInputStream(entry).use { instream ->
                             var numRead: Int
                             while (instream.read(buffer).also { numRead = it } != -1) {
@@ -390,7 +390,7 @@ object PackageUtil {
             val buffer = ByteArray(16 * 1024)
             for (apk in apks) {
                 val entry = ZipArchiveEntry(apk, apk.name)
-                entry.setMethod(ZipMethod.XZ.getCode())
+                entry.setMethod(ZipMethod.XZ.code)
                 entry.setSize(apk.length())
                 out.putArchiveEntry(entry)
                 FileInputStream(apk).use { instream ->
@@ -405,7 +405,7 @@ object PackageUtil {
                         callback.accept((fraction * 100.0).toInt())
                     }
                     xz.finish()
-                    entry.setCrc(crc.getValue())
+                    entry.setCrc(crc.value)
                 }
                 out.closeArchiveEntry()
             }

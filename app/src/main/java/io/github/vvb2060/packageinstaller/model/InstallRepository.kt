@@ -1,9 +1,9 @@
 package io.github.vvb2060.packageinstaller.model
 
 import android.Manifest
-import android.app.Application
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.content.Intent_rename
@@ -27,7 +27,6 @@ import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
-import androidx.lifecycle.MutableLiveData
 import io.github.vvb2060.packageinstaller.R
 import io.github.vvb2060.packageinstaller.model.Hook.wrap
 import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_CLOSE
@@ -38,15 +37,19 @@ import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_P
 import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_SHIZUKU
 import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_SPLIT
 import io.github.vvb2060.packageinstaller.model.InstallAborted.Companion.ABORT_WRITE
+import kotlinx.coroutines.flow.MutableStateFlow
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider
 import java.io.File
 import java.io.IOException
 
-class InstallRepository(private val context: Application) {
-    private val TAG = InstallRepository::class.java.simpleName
-    val installResult = MutableLiveData<InstallStage>()
-    val stagingProgress = MutableLiveData<Int>()
+class InstallRepository(private val context: Context) {
+    companion object {
+        private const val TAG = "InstallRepository"
+    }
+
+    val installResult = MutableStateFlow<InstallStage?>(null)
+    val stagingProgress = MutableStateFlow(0)
     private lateinit var packageManager: PackageManager
     private lateinit var packageInstaller: PackageInstaller
     private var stagedSessionId = SessionInfo.INVALID_ID
@@ -90,31 +93,31 @@ class InstallRepository(private val context: Application) {
         }
         if (uri != null && "package" == uri.scheme) {
             val packageName = uri.schemeSpecificPart
-            installResult.postValue(processPackageUri(packageName))
+            installResult.value = (processPackageUri(packageName))
             return
         }
         if (uri != null && "market" == uri.scheme && uri.authority == "details") {
             uri.getQueryParameter("id")?.let {
-                installResult.postValue(processPackageUri(it))
+                installResult.value = (processPackageUri(it))
                 return
             }
         }
         if (uri != null && ContentResolver.SCHEME_CONTENT == uri.scheme) {
-            installResult.postValue(processContentUri(uri))
+            installResult.value = (processContentUri(uri))
             return
         }
         if (uri == null) {
             intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME)?.let {
-                installResult.postValue(processPackageUri(it))
+                installResult.value = (processPackageUri(it))
                 return
             }
         }
-        installResult.postValue(InstallAborted(ABORT_INFO))
+        installResult.value = (InstallAborted(ABORT_INFO))
     }
 
     fun install(setInstaller: Boolean, commit: Boolean, full: Boolean, removeSplit: Boolean) {
         val uri = intent.data
-        installResult.postValue(InstallInstalling(apkLite!!))
+        installResult.value = (InstallInstalling(apkLite!!))
         if (ContentResolver.SCHEME_CONTENT != uri?.scheme &&
             ContentResolver.SCHEME_FILE != uri?.scheme
         ) {
@@ -128,7 +131,7 @@ class InstallRepository(private val context: Application) {
                 stagedSessionId = packageInstaller.createSession(params)
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to create a staging session", e)
-                installResult.postValue(InstallAborted(ABORT_CREATE))
+                installResult.value = (InstallAborted(ABORT_CREATE))
                 return
             }
         }
@@ -142,11 +145,11 @@ class InstallRepository(private val context: Application) {
                 context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
                     if (apkLite!!.zip) {
                         PackageUtil.stageZip(session, afd) {
-                            stagingProgress.postValue(it)
+                            stagingProgress.value = (it)
                         }
                     } else {
                         PackageUtil.stageApk(session, afd) {
-                            stagingProgress.postValue(it)
+                            stagingProgress.value = (it)
                         }
                     }
                 }
@@ -154,15 +157,15 @@ class InstallRepository(private val context: Application) {
         } catch (e: Exception) {
             cleanupInstall()
             Log.e(TAG, "Could not stage APK.", e)
-            installResult.postValue(InstallAborted(ABORT_WRITE))
+            installResult.value = (InstallAborted(ABORT_WRITE))
             return
         }
 
         if (commit) {
-            stagingProgress.postValue(101)
+            stagingProgress.value = (101)
             commit()
         } else {
-            installResult.postValue(InstallAborted(ABORT_CLOSE))
+            installResult.value = (InstallAborted(ABORT_CLOSE))
         }
     }
 
@@ -296,7 +299,7 @@ class InstallRepository(private val context: Application) {
     }
 
     private fun installPackageUri() {
-        stagingProgress.postValue(101)
+        stagingProgress.value = (101)
         try {
             val pm = packageManager as PackageManager_rename
             pm.installExistingPackage(apkLite!!.packageName, PackageManager.INSTALL_REASON_USER)
@@ -389,9 +392,9 @@ class InstallRepository(private val context: Application) {
                 apkLite!!.icon = info.applicationInfo!!.loadIcon(packageManager)
                 apkLite!!.label = info.applicationInfo!!.loadLabel(packageManager).toString()
             }
-            installResult.postValue(InstallSuccess(apkLite!!, intent))
+            installResult.value = (InstallSuccess(apkLite!!, intent))
         } else {
-            installResult.postValue(InstallFailed(apkLite!!, legacyStatus, statusCode, message))
+            installResult.value = (InstallFailed(apkLite!!, legacyStatus, statusCode, message))
         }
     }
 
@@ -406,7 +409,7 @@ class InstallRepository(private val context: Application) {
     }
 
     fun archivePackage(info: PackageInfo, uninstall: Boolean) {
-        installResult.postValue(InstallInstalling(apkLite!!))
+        installResult.value = (InstallInstalling(apkLite!!))
 
         val name = "${info.packageName}-${info.longVersionCode}.zip"
         val dir = Environment.DIRECTORY_DOCUMENTS + File.separator +
@@ -427,7 +430,7 @@ class InstallRepository(private val context: Application) {
             file.toUri()
         }
         if (uri == null) {
-            installResult.postValue(InstallAborted(ABORT_WRITE))
+            installResult.value = (InstallAborted(ABORT_WRITE))
             return
         }
 
@@ -442,7 +445,7 @@ class InstallRepository(private val context: Application) {
         try {
             context.contentResolver.openAssetFileDescriptor(uri, "wt")?.use { afd ->
                 PackageUtil.archivePackage(list, afd) {
-                    stagingProgress.postValue(it)
+                    stagingProgress.value = (it)
                 }
             }
         } catch (e: IOException) {
@@ -452,7 +455,7 @@ class InstallRepository(private val context: Application) {
             } else {
                 File(uri.path!!).delete()
             }
-            installResult.postValue(InstallAborted(ABORT_WRITE))
+            installResult.value = (InstallAborted(ABORT_WRITE))
             return
         }
 
@@ -479,9 +482,9 @@ class InstallRepository(private val context: Application) {
         if (uninstall) {
             val receiver = LocalIntentReceiver { statusCode, legacyCode, msg ->
                 if (statusCode == PackageInstaller.STATUS_SUCCESS) {
-                    installResult.postValue(InstallSuccess(apkLite!!, intent, path))
+                    installResult.value = (InstallSuccess(apkLite!!, intent, path))
                 } else {
-                    installResult.postValue(InstallSuccess(apkLite!!, intent, "$path\n\n$msg"))
+                    installResult.value = (InstallSuccess(apkLite!!, intent, "$path\n\n$msg"))
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
@@ -506,7 +509,7 @@ class InstallRepository(private val context: Application) {
             val pm = packageManager as PackageManager_rename
             pm.deleteApplicationCacheFilesAsUser(info.packageName, userId, null)
         } else {
-            installResult.postValue(InstallSuccess(apkLite!!, intent, path))
+            installResult.value = (InstallSuccess(apkLite!!, intent, path))
         }
     }
 

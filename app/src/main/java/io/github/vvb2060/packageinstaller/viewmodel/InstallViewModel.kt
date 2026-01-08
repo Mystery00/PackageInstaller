@@ -1,27 +1,28 @@
 package io.github.vvb2060.packageinstaller.viewmodel
 
-import android.annotation.SuppressLint
-import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageInfo
-import androidx.arch.core.executor.ArchTaskExecutor
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.github.vvb2060.packageinstaller.model.InstallRepository
 import io.github.vvb2060.packageinstaller.model.InstallStage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-@SuppressLint("RestrictedApi")
-class InstallViewModel(application: Application) : AndroidViewModel(application) {
-    private val executor = ArchTaskExecutor.getInstance()
-    private val repository = InstallRepository(getApplication())
-    val currentInstallStage: LiveData<InstallStage>
+class InstallViewModel : ViewModel(), KoinComponent {
+    private val repository: InstallRepository by inject()
+
+    val currentInstallStage: StateFlow<InstallStage?>
         get() = repository.installResult
-    val stagingProgress: LiveData<Int>
+    val stagingProgress: StateFlow<Int>
         get() = repository.stagingProgress
 
     fun preprocessIntent(intent: Intent) {
         if (repository.preCheck(intent)) {
-            executor.executeOnDiskIO {
+            viewModelScope.launch(Dispatchers.IO) {
                 repository.parseUri()
             }
         }
@@ -37,19 +38,19 @@ class InstallViewModel(application: Application) : AndroidViewModel(application)
         full: Boolean,
         removeSplit: Boolean
     ) {
-        executor.executeOnDiskIO {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.install(setInstaller, commit, full, removeSplit)
         }
     }
 
     fun archivePackage(info: PackageInfo, uninstall: Boolean) {
-        executor.executeOnDiskIO {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.archivePackage(info, uninstall)
         }
     }
 
     fun setPackageEnabled(packageName: String, enabled: Boolean) {
-        executor.executeOnDiskIO {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.setPackageEnabled(packageName, enabled)
         }
     }
