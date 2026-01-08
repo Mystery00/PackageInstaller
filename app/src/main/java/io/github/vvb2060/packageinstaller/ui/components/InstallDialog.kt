@@ -91,6 +91,9 @@ fun InstallDialog(
                     ProvideTextStyle(MaterialTheme.typography.labelLarge) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             negativeButton?.invoke()
+                            Spacer(
+                                modifier = Modifier.weight(1f)
+                            )
                             dismissButton?.invoke()
                             confirmButton?.invoke()
                         }

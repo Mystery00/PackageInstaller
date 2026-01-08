@@ -86,11 +86,13 @@ fun InstallConfirm(
                 Text(stringResource(android.R.string.cancel))
             }
         },
-        negativeButton = {
-            TextButton(onClick = { onInitiateInstall(checked, false, removeSplit) }) {
-                Text(stringResource(R.string.add_more))
+        negativeButton = if (stage.apkLite.isSplit()) {
+            {
+                TextButton(onClick = { onInitiateInstall(checked, false, removeSplit) }) {
+                    Text(stringResource(R.string.add_more))
+                }
             }
-        }
+        } else null
     ) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Text(
