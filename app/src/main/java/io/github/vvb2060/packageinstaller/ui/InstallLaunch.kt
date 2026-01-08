@@ -1,120 +1,85 @@
 package io.github.vvb2060.packageinstaller.ui
 
 import android.os.Bundle
-import android.view.Window
-import androidx.fragment.app.DialogFragment
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
-import androidx.fragment.app.FragmentFactory
-import androidx.fragment.app.FragmentManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import io.github.vvb2060.packageinstaller.model.InstallAborted
 import io.github.vvb2060.packageinstaller.model.InstallFailed
 import io.github.vvb2060.packageinstaller.model.InstallInstalling
+import io.github.vvb2060.packageinstaller.model.InstallParse
 import io.github.vvb2060.packageinstaller.model.InstallStage
 import io.github.vvb2060.packageinstaller.model.InstallSuccess
 import io.github.vvb2060.packageinstaller.model.InstallUserAction
 import io.github.vvb2060.packageinstaller.model.PackageUserAction
-import io.github.vvb2060.packageinstaller.ui.fragments.ArchiveConfirmationFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.BaseDialogFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallConfirmationFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallErrorFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallFailedFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallInstallingFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallParseFragment
-import io.github.vvb2060.packageinstaller.ui.fragments.InstallSuccessFragment
+import io.github.vvb2060.packageinstaller.ui.theme.PackageInstallerTheme
 import io.github.vvb2060.packageinstaller.viewmodel.InstallViewModel
-import java.lang.reflect.Constructor
 
-class InstallLaunch : FragmentActivity() {
+class InstallLaunch : ComponentActivity() {
 
     private lateinit var installViewModel: InstallViewModel
-    private lateinit var fragmentManager: FragmentManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
-        fragmentManager = supportFragmentManager
-        installViewModel = ViewModelProvider(this)[InstallViewModel::class.java]
-        fragmentManager.fragmentFactory = object : FragmentFactory() {
-            override fun instantiate(classLoader: ClassLoader, className: String): Fragment {
-                val cls = loadFragmentClass(classLoader, className)
-                val constructor = cls.constructors[0]!! as Constructor<Fragment>
-                return if (constructor.parameterCount == 1) {
-                    constructor.newInstance(installViewModel.currentInstallStage.value)
-                } else {
-                    constructor.newInstance()
-                }
-            }
-        }
-
         super.onCreate(savedInstanceState)
+        
+        installViewModel = ViewModelProvider(this)[InstallViewModel::class.java]
+
         if (savedInstanceState == null) {
             installViewModel.preprocessIntent(this.intent)
         }
-        installViewModel.currentInstallStage.observe(this) { installStage: InstallStage ->
-            onInstallStageChange(installStage)
-        }
-    }
 
-    private fun onInstallStageChange(installStage: InstallStage) {
-        when (installStage.stageCode) {
-            InstallStage.Companion.STAGE_ABORTED -> {
-                val aborted = installStage as InstallAborted
-                if (aborted.abortReason == InstallAborted.ABORT_CLOSE) {
-                    showDialogInner(null)
+        setContent {
+            PackageInstallerTheme {
+                InstallApp(viewModel = installViewModel) {
                     finish()
-                } else {
-                    val errorDialog = InstallErrorFragment(aborted)
-                    showDialogInner(errorDialog)
                 }
             }
+        }
+    }
+}
 
-            InstallStage.Companion.STAGE_PARSE -> {
-                val parseDialog = InstallParseFragment()
-                showDialogInner(parseDialog)
+@Composable
+fun InstallApp(viewModel: InstallViewModel, onFinish: () -> Unit) {
+    val installStage by viewModel.currentInstallStage.observeAsState()
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when (val stage = installStage) {
+            null -> {
+                Text("Loading...")
             }
-
-            InstallStage.Companion.STAGE_USER_ACTION -> {
-                val uar = installStage as InstallUserAction
-                val actionDialog = InstallConfirmationFragment(uar)
-                showDialogInner(actionDialog)
+            is InstallAborted -> {
+                if (stage.abortReason == InstallAborted.ABORT_CLOSE) {
+                    onFinish()
+                } else {
+                    Text("Error: ${stage.abortReason}")
+                }
             }
-
-            InstallStage.Companion.STAGE_ARCHIVE -> {
-                val archive = installStage as PackageUserAction
-                val archiveDialog = ArchiveConfirmationFragment(archive)
-                showDialogInner(archiveDialog)
+            is InstallParse -> {
+                 Text("Parsing Package...")
             }
-
-            InstallStage.Companion.STAGE_INSTALLING -> {
-                val installing = installStage as InstallInstalling
-                val installingDialog = InstallInstallingFragment(installing)
-                showDialogInner(installingDialog)
+            is InstallUserAction -> {
+                 Text("Confirm Install: ${stage.apkLite.label}")
             }
-
-            InstallStage.Companion.STAGE_SUCCESS -> {
-                val success = installStage as InstallSuccess
-                val successDialog = InstallSuccessFragment(success)
-                showDialogInner(successDialog)
+            is PackageUserAction -> {
+                 Text("Archive Confirm")
             }
-
-            InstallStage.Companion.STAGE_FAILED -> {
-                val failed = installStage as InstallFailed
-                val failureDialog = InstallFailedFragment(failed)
-                showDialogInner(failureDialog)
+            is InstallInstalling -> {
+                 Text("Installing...")
+            }
+            is InstallSuccess -> {
+                 Text("Success!")
+            }
+            is InstallFailed -> {
+                 Text("Failed: ${stage.statusCode}")
             }
         }
     }
-
-    private fun showDialogInner(newDialog: DialogFragment?) {
-        val currentDialog = fragmentManager.findFragmentByTag("dialog") as DialogFragment?
-        if (currentDialog is BaseDialogFragment && newDialog is BaseDialogFragment
-            && currentDialog.mDialogData.stageCode == newDialog.mDialogData.stageCode
-        ) {
-            return
-        }
-        currentDialog?.dismissAllowingStateLoss()
-        newDialog?.show(fragmentManager, "dialog")
-    }
-
 }

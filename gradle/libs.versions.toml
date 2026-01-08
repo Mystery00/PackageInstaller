@@ -1,0 +1,39 @@
+[versions]
+agp = "8.13.2"
+kotlin = "2.3.0"
+
+app-version = "2.0"
+android-compileSdk = "36"
+android-minSdk = "28"
+android-targetSdk = "36"
+
+androidx-fragment = "1.8.9"
+androidx-lifecycle = "2.10.0"
+androidx-activity-compose = "1.12.2"
+androidx-compose-bom = "2025.12.01"
+shizuku = "13.1.5"
+hiddenapibypass = "6.1"
+commons-compress = "1.28.0"
+xz = "1.11"
+annotation = "1.9.1"
+
+[libraries]
+annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
+androidx-fragment = { group = "androidx.fragment", name = "fragment", version.ref = "androidx-fragment" }
+androidx-lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata", version.ref = "androidx-lifecycle" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity-compose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidx-compose-bom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenapibypass" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commons-compress" }
+xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

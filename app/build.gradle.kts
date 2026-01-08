@@ -13,63 +13,119 @@ import org.objectweb.asm.commons.ClassRemapper
 import org.objectweb.asm.commons.Remapper
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.compose.compiler)
+}
+
+val packageName = "io.github.vvb2060.packageinstaller"
+val gitVersionCode: Int = providers.exec {
+    commandLine(
+        "git",
+        "rev-list",
+        "HEAD",
+        "--count"
+    )
+}.standardOutput.asText.get().trim().toInt()
+val gitVersionName: String =
+    providers.exec {
+        commandLine(
+            "git",
+            "rev-parse",
+            "--short=8",
+            "HEAD"
+        )
+    }.standardOutput.asText.get().trim()
+val appVersionName: String = libs.versions.app.version.get()
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
+    }
 }
 
 android {
-    namespace = "io.github.vvb2060.packageinstaller"
+    namespace = packageName
+    compileSdk {
+        version = release(libs.versions.android.compileSdk.get().toInt())
+    }
     defaultConfig {
-        versionCode = 8
-        versionName = "1.7"
+        applicationId = packageName
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        versionCode = gitVersionCode
+        versionName = appVersionName
         optimization {
             keepRules {
                 ignoreFromAllExternalDependencies(true)
             }
         }
     }
+    signingConfigs {
+        create("sign")
+    }
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            @Suppress("UnstableApiUsage")
+            vcsInfo.include = false
+            versionNameSuffix = ".d$gitVersionCode.$gitVersionName"
+            signingConfig = signingConfigs.getByName("sign")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            @Suppress("UnstableApiUsage")
             vcsInfo.include = false
             proguardFiles("proguard-rules.pro")
-            signingConfig = signingConfigs["debug"]
+            versionNameSuffix = ".r$gitVersionCode.$gitVersionName"
+            signingConfig = signingConfigs.getByName("sign")
         }
-    }
-    buildFeatures {
-        buildConfig = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
-    androidResources {
-        generateLocaleConfig = true
-    }
-    packaging {
-        resources {
-            excludes += "**"
-        }
+    buildFeatures {
+        buildConfig = true
+        compose = true
     }
     lint {
         checkReleaseBuilds = false
     }
     dependenciesInfo {
         includeInApk = false
+        includeInBundle = false
+    }
+    @Suppress("UnstableApiUsage")
+    androidResources {
+        localeFilters.add("en")
+        localeFilters.add("zh-rCN")
     }
 }
 
 dependencies {
     compileOnly(projects.stub)
-    implementation("androidx.fragment:fragment:1.8.9")
-    implementation("androidx.lifecycle:lifecycle-livedata:2.10.0")
-    implementation("dev.rikka.shizuku:provider:13.1.5")
-    implementation("dev.rikka.shizuku:api:13.1.5")
-    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
-    implementation("org.apache.commons:commons-compress:1.28.0")
-    implementation("org.tukaani:xz:1.11")
+    implementation(libs.androidx.fragment)
+    implementation(libs.androidx.lifecycle.livedata)
+    implementation(libs.shizuku.provider)
+    implementation(libs.shizuku.api)
+    implementation(libs.hiddenapibypass)
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
+
+    // Compose
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.material3)
 }
+
+apply(from = rootProject.file("signing.gradle"))
 
 androidComponents.onVariants { variant ->
     variant.instrumentation.transformClassesWith(
