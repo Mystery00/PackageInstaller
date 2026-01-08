@@ -10,7 +10,7 @@
     -   **依赖注入**: 使用 **Koin** (Koin-Android, Koin-Compose)。
     -   **状态管理**: 使用 **StateFlow** 替代 LiveData。
     -   **权限**: 使用 **Shizuku** 进行高权限操作 (安装应用、绕过限制)。
-    -   **兼容性**: TargetSDK 35 (Android 15)，支持应用归档 (Archiving) 等最新 Android 版本特性。
+    - **兼容性**: TargetSDK 36 (Android 16)，支持应用归档 (Archiving) 等最新 Android 版本特性。
     -   **旧版支持**: 使用 `hiddenapibypass` 访问深度系统集成所需的受限 API。
     -   **依赖管理**: 使用 **Gradle Version Catalog** (`libs.versions.toml`) 管理所有项目依赖。
 -   **功能特性规范**:
@@ -20,7 +20,8 @@
     -   **归档功能**: 包含归档应用 (卸载但保留数据) 或导出为 ZIP 的逻辑。
     -   **UI 呈现**:
         -   基于 Jetpack Compose 的 Dialog 风格界面，通过状态 (`InstallStage`) 驱动不同的 UI 内容 (`Parse`, `Confirm`, `Installing`, `Success`, `Failed`)。
-        -   `InstallLaunch` Activity 作为 Compose 的容器 (Host)。
+        - `InstallLaunch` Activity 作为 Compose 的容器 (Host)，通过 `Surface` 模拟 Dialog 容器，Activity
+          本身主题为 `@style/Theme.AlertDialogActivity` 以提供透明背景。
 
 ### 代码结构
 
@@ -28,11 +29,12 @@
     -   `InstallRepository.kt`: 管理 `PackageInstaller` 会话，使用 `StateFlow` 暴露安装状态。
     -   `ApkLite.kt`: 轻量级 APK 解析逻辑。
     -   `Hook.kt`: 反射与 Hidden API 绕过机制。
+    - `PackageUtil.kt`: APK/ZIP 文件处理工具类。
 -   `di/`: 依赖注入模块。
     -   `AppModule.kt`: Koin 模块定义。
 -   `ui/`: 用户界面 (Jetpack Compose)。
-    -   `components/`: 可复用的 Compose 组件。
-    -   `screens/`: 安装步骤的独立 Compose 页面 (Error, Parse, Confirm, etc.)。
+    - `components/`: 所有安装步骤的 Compose 组件 (`InstallDialog`, `InstallParse`, `InstallConfirm`
+      等)。
     -   `theme/`: 应用主题定义。
     -   `InstallLaunch.kt`: 主 Activity，使用 Koin 注入 ViewModel。
 -   `viewmodel/`:
@@ -62,8 +64,9 @@
     -   **HiddenApiBypass**: 访问内部 PMS/Install APIs 所需。
     -   **Commons Compress / XZ**: 用于处理复杂的归档文件。
     -   **Jetpack Compose**: 用于构建所有 UI。
+    - **Coil**: 用于异步加载应用图标。
 -   **SDK 版本**:
-    -   Target SDK: 35.
+    - Target SDK: 36.
     -   Java Version: 21.
 
 ## 任务处理指南
