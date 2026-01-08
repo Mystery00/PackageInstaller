@@ -2,19 +2,17 @@ package io.github.vvb2060.packageinstaller.ui
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.vvb2060.packageinstaller.R
 import io.github.vvb2060.packageinstaller.model.Hook
@@ -63,7 +61,7 @@ private fun checkShizuku(context: Context, intent: Intent?) {
     }
     var finalIntent = intent
     if (finalIntent == null) {
-        val web = Uri.parse(context.getString(R.string.shizuku_url))
+        val web = context.getString(R.string.shizuku_url).toUri()
         finalIntent = Intent(Intent.ACTION_VIEW, web)
     }
     context.startActivity(finalIntent)
@@ -74,7 +72,7 @@ fun InstallApp(viewModel: InstallViewModel, onFinish: () -> Unit) {
     val installStage by viewModel.currentInstallStage.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(contentAlignment = Alignment.Center) {
         when (val stage = installStage) {
             null -> {
                 // Initial loading state, could be a spinner
