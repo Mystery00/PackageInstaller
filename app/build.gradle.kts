@@ -62,13 +62,13 @@ android {
 
 dependencies {
     compileOnly(projects.stub)
-    implementation("androidx.fragment:fragment:1.8.8")
-    implementation("androidx.lifecycle:lifecycle-livedata:2.9.2")
+    implementation("androidx.fragment:fragment:1.8.9")
+    implementation("androidx.lifecycle:lifecycle-livedata:2.10.0")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     implementation("org.apache.commons:commons-compress:1.28.0")
-    implementation("org.tukaani:xz:1.10")
+    implementation("org.tukaani:xz:1.11")
 }
 
 androidComponents.onVariants { variant ->
